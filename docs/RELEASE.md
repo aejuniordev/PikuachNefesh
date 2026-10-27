@@ -53,18 +53,51 @@ Recomenda-se seguir [Versionamento Semântico](https://semver.org/lang/pt-BR/): 
 
 Sem assinatura, o APK de release **não pode ser instalado** no Android. Para que o workflow gere um APK assinado, configure as secrets abaixo em **Settings** → **Secrets and variables** → **Actions**:
 
-| Secret | Valor |
-|---|---|
-| `ANDROID_KEYSTORE_BASE64` | Conteúdo do keystore em Base64 |
-| `ANDROID_KEYSTORE_PASSWORD` | Senha do keystore |
-| `ANDROID_KEY_ALIAS` | Alias da chave |
-| `ANDROID_KEY_PASSWORD` | Senha da chave |
+| Secret | Valor | Exemplo |
+|---|---|---|
+| `ANDROID_KEYSTORE_BASE64` | Conteúdo do arquivo `release.jks` convertido para Base64 (ver [Convertendo para Base64](#convertendo-para-base64)) | `MIIKXAIBAzCCCgYGCSqGSIb3...` |
+| `ANDROID_KEYSTORE_PASSWORD` | Senha informada ao `keytool` em *Enter keystore password* | `minha-senha-forte` |
+| `ANDROID_KEY_ALIAS` | Valor usado em `-alias` na criação do keystore | `pikuach` |
+| `ANDROID_KEY_PASSWORD` | Senha da chave. Em keystores PKCS12 (padrão do `keytool` desde o Java 9) é **a mesma** de `ANDROID_KEYSTORE_PASSWORD` | `minha-senha-forte` |
+
+Os nomes das secrets devem ser exatamente esses (maiúsculas, com `_`), pois são lidos pelo workflow e repassados ao `app/build.gradle.kts`.
+
+### Passo a passo
+
+1. [Crie o keystore](#criando-um-keystore) (apenas uma vez — o mesmo keystore deve ser usado em todas as versões).
+2. [Converta o arquivo para Base64](#convertendo-para-base64).
+3. No GitHub, abra **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+4. Crie cada uma das quatro secrets da tabela acima: em *Name* o nome da secret, em *Secret* o valor.
+5. Publique uma nova tag e confira se a release contém `PikuachNefesh-<versão>-release.apk` (sem `-unsigned`).
+
+Alternativamente, com a [GitHub CLI](https://cli.github.com/):
+
+```bash
+base64 -w0 release.jks | gh secret set ANDROID_KEYSTORE_BASE64
+gh secret set ANDROID_KEYSTORE_PASSWORD   # pede o valor no terminal
+gh secret set ANDROID_KEY_ALIAS --body pikuach
+gh secret set ANDROID_KEY_PASSWORD        # mesmo valor da senha do keystore
+```
+
+> **Cuidado ao colar valores:** não inclua espaços, aspas ou quebras de linha extras. O Base64 deve ser uma única linha, colada por inteiro.
 
 ### Criando um keystore
 
 ```bash
 keytool -genkey -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias pikuach
 ```
+
+O `keytool` pede a senha do keystore e os dados do certificado (nome, organização etc. — podem ser preenchidos livremente). Se ele também pedir a senha da chave, use a mesma senha.
+
+### Conferindo alias e senha
+
+Se não lembrar o alias, liste o conteúdo do keystore (pede a senha; se ela estiver errada, o comando falha):
+
+```bash
+keytool -list -v -keystore release.jks
+```
+
+O valor de *Alias name* é o que vai em `ANDROID_KEY_ALIAS`.
 
 ### Convertendo para Base64
 
